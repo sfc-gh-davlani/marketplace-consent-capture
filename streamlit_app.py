@@ -8,6 +8,8 @@ service account (key-pair auth) to write the acceptance record.
 
 import streamlit as st
 import snowflake.connector
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 TABLE = "MARKETPLACE_E2E.PUBLIC.TERMS_ACCEPTANCE_LOG"
 TERMS_VERSION = "v1.0 - 2026-09-14"
@@ -43,11 +45,17 @@ production use.)*
 
 @st.cache_resource
 def get_connection():
+    pem_key = st.secrets["snowflake"]["private_key"].encode()
+    p_key = serialization.load_pem_private_key(pem_key, password=None, backend=default_backend())
+    pkb = p_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
     return snowflake.connector.connect(
         user=st.secrets["snowflake"]["user"],
         account=st.secrets["snowflake"]["account"],
-        private_key_file=None,
-        private_key=st.secrets["snowflake"]["private_key"].encode(),
+        private_key=pkb,
         role=st.secrets["snowflake"].get("role", "CONSENT_APP_ROLE"),
         warehouse=st.secrets["snowflake"].get("warehouse", "TEMP"),
     )
