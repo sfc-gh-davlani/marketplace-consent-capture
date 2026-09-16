@@ -49,8 +49,7 @@ production use.)*"""
 TERMS_HASH = hashlib.sha256(SAMPLE_TERMS_TEXT.encode("utf-8")).hexdigest()
 
 
-@st.cache_resource
-def get_connection():
+def _create_connection():
     key_der = base64.b64decode(st.secrets["snowflake"]["private_key_b64"])
     return snowflake.connector.connect(
         user=st.secrets["snowflake"]["user"],
@@ -59,6 +58,16 @@ def get_connection():
         role=st.secrets["snowflake"].get("role", "CONSENT_APP_ROLE"),
         warehouse=st.secrets["snowflake"].get("warehouse", "TEMP"),
     )
+
+
+_conn_holder: dict = {}
+
+
+def get_connection():
+    conn = _conn_holder.get("conn")
+    if conn is None or conn.is_closed():
+        _conn_holder["conn"] = _create_connection()
+    return _conn_holder["conn"]
 
 
 def validate_token(token: str) -> dict | None:
